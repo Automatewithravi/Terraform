@@ -871,4 +871,4 @@ Before adding anything else to version control, confirm your real `terraform.tfv
 
 ---
 
-**Next:** Part 2 picks up from the `snet-pe` subnet already provisioned here, adding the storage account, private endpoint, and private DNS zone.
+
