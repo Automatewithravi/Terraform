@@ -1,0 +1,168 @@
+tfplan
+data.azurerm_storage_account.state_storage: Reading...
+data.azurerm_storage_account.state_storage: Read complete after 3s [id=/subscriptions/f3148a12-5e6b-47bd-8299-94a0a8ea2b85/resourceGroups/rg-tfstate-landingzone/providers/Microsoft.Storage/storageAccounts/sttflzstateh4dynn]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with
+the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # azurerm_federated_identity_credential.apply_env will be created
+  + resource "azurerm_federated_identity_credential" "apply_env" {
+      + audience                  = [
+          + "api://AzureADTokenExchange",
+        ]
+      + id                        = (known after apply)
+      + issuer                    = "https://token.actions.githubusercontent.com"
+      + name                      = "github-environment-dev-apply"
+      + subject                   = "repo:Automatewithravi/Terraform:environment:dev-apply"
+      + user_assigned_identity_id = (known after apply)
+    }
+
+  # azurerm_federated_identity_credential.plan_main will be created
+  + resource "azurerm_federated_identity_credential" "plan_main" {
+      + audience                  = [
+          + "api://AzureADTokenExchange",
+        ]
+      + id                        = (known after apply)
+      + issuer                    = "https://token.actions.githubusercontent.com"
+      + name                      = "github-main-branch"
+      + subject                   = "repo:Automatewithravi/Terraform:ref:refs/heads/main"
+      + user_assigned_identity_id = (known after apply)
+    }
+
+  # azurerm_federated_identity_credential.plan_pr will be created
+  + resource "azurerm_federated_identity_credential" "plan_pr" {
+      + audience                  = [
+          + "api://AzureADTokenExchange",
+        ]
+      + id                        = (known after apply)
+      + issuer                    = "https://token.actions.githubusercontent.com"
+      + name                      = "github-pull-request"
+      + subject                   = "repo:Automatewithravi/Terraform:pull_request"
+      + user_assigned_identity_id = (known after apply)
+    }
+
+  # azurerm_resource_group.identity will be created
+  + resource "azurerm_resource_group" "identity" {
+      + id       = (known after apply)
+      + location = "centralindia"
+      + name     = "rg-cicd-identity"
+      + tags     = {
+          + "managed_by" = "terraform"
+          + "owner"      = "ravi@automatewithravi.com"
+          + "purpose"    = "cicd-oidc"
+        }
+    }
+
+  # azurerm_resource_group.target will be created
+  + resource "azurerm_resource_group" "target" {
+      + id       = (known after apply)
+      + location = "centralindia"
+      + name     = "rg-cicd-demo-dev"
+      + tags     = {
+          + "managed_by" = "terraform"
+          + "owner"      = "ravi@automatewithravi.com"
+          + "purpose"    = "cicd-oidc"
+        }
+    }
+
+  # azurerm_role_assignment.apply_contributor will be created
+  + resource "azurerm_role_assignment" "apply_contributor" {
+      + condition_version                = (known after apply)
+      + id                               = (known after apply)
+      + name                             = (known after apply)
+      + principal_id                     = (known after apply)
+      + principal_type                   = (known after apply)
+      + role_definition_id               = (known after apply)
+      + role_definition_name             = "Contributor"
+      + scope                            = (known after apply)
+      + skip_service_principal_aad_check = (known after apply)
+    }
+
+  # azurerm_role_assignment.apply_state_write will be created
+  + resource "azurerm_role_assignment" "apply_state_write" {
+      + condition_version                = (known after apply)
+      + id                               = (known after apply)
+      + name                             = (known after apply)
+      + principal_id                     = (known after apply)
+      + principal_type                   = (known after apply)
+      + role_definition_id               = (known after apply)
+      + role_definition_name             = "Storage Blob Data Contributor"
+      + scope                            = "/subscriptions/f3148a12-5e6b-47bd-8299-94a0a8ea2b85/resourceGroups/rg-tfstate-landingzone/providers/Microsoft.Storage/storageAccounts/sttflzstateh4dynn/blobServices/default/containers/tfstate-cicd"
+      + skip_service_principal_aad_check = (known after apply)
+    }
+
+  # azurerm_role_assignment.plan_reader will be created
+  + resource "azurerm_role_assignment" "plan_reader" {
+      + condition_version                = (known after apply)
+      + id                               = (known after apply)
+      + name                             = (known after apply)
+      + principal_id                     = (known after apply)
+      + principal_type                   = (known after apply)
+      + role_definition_id               = (known after apply)
+      + role_definition_name             = "Reader"
+      + scope                            = (known after apply)
+      + skip_service_principal_aad_check = (known after apply)
+    }
+
+  # azurerm_role_assignment.plan_state_read will be created
+  + resource "azurerm_role_assignment" "plan_state_read" {
+      + condition_version                = (known after apply)
+      + id                               = (known after apply)
+      + name                             = (known after apply)
+      + principal_id                     = (known after apply)
+      + principal_type                   = (known after apply)
+      + role_definition_id               = (known after apply)
+      + role_definition_name             = "Storage Blob Data Reader"
+      + scope                            = "/subscriptions/f3148a12-5e6b-47bd-8299-94a0a8ea2b85/resourceGroups/rg-tfstate-landingzone/providers/Microsoft.Storage/storageAccounts/sttflzstateh4dynn/blobServices/default/containers/tfstate-cicd"
+      + skip_service_principal_aad_check = (known after apply)
+    }
+
+  # azurerm_user_assigned_identity.apply will be created
+  + resource "azurerm_user_assigned_identity" "apply" {
+      + client_id           = (known after apply)
+      + id                  = (known after apply)
+      + location            = "centralindia"
+      + name                = "id-tf-apply-github"
+      + principal_id        = (known after apply)
+      + resource_group_name = "rg-cicd-identity"
+      + tags                = {
+          + "managed_by" = "terraform"
+          + "owner"      = "ravi@automatewithravi.com"
+          + "purpose"    = "cicd-oidc"
+        }
+      + tenant_id           = (known after apply)
+    }
+
+  # azurerm_user_assigned_identity.plan will be created
+  + resource "azurerm_user_assigned_identity" "plan" {
+      + client_id           = (known after apply)
+      + id                  = (known after apply)
+      + location            = "centralindia"
+      + name                = "id-tf-plan-github"
+      + principal_id        = (known after apply)
+      + resource_group_name = "rg-cicd-identity"
+      + tags                = {
+          + "managed_by" = "terraform"
+          + "owner"      = "ravi@automatewithravi.com"
+          + "purpose"    = "cicd-oidc"
+        }
+      + tenant_id           = (known after apply)
+    }
+
+Plan: 11 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + apply_client_id       = (known after apply)
+  + plan_client_id        = (known after apply)
+  + target_resource_group = "rg-cicd-demo-dev"
+  + tenant_id             = (known after apply)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Saved the plan to: bootstrap.tfplan
+
+To perform exactly these actions, run the following command to apply:
+    terraform apply "bootstrap.tfplan"

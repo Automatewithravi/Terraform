@@ -1,0 +1,116 @@
+name: terraform-plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "azure-terraform-cicd-oidc/environments/dev/**"
+      - ".github/workflows/terraform-*.yml"
+
+# Deny by default. Each job declares only what it needs.
+permissions: {}
+
+concurrency:
+  group: terraform-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_VERSION: "1.15.8"
+  WORKDIR: azure-terraform-cicd-oidc/environments/dev
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.WORKDIR }}
+
+      - name: init (no backend, no Azure login needed)
+        run: terraform init -backend=false
+        working-directory: ${{ env.WORKDIR }}
+
+      - name: validate
+        run: terraform validate
+        working-directory: ${{ env.WORKDIR }}
+
+  security-scan:
+    name: security-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: ${{ env.WORKDIR }}
+          framework: terraform
+          soft_fail: true      # report first; switch to false once findings are triaged
+
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    needs: [validate]
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      ARM_USE_OIDC: true  
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}     
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_admin_ssh_public_key: ${{ vars.ADMIN_SSH_PUBLIC_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: init
+        run: terraform init
+        working-directory: ${{ env.WORKDIR }}
+
+      # -lock=false: PR plans are speculative and the plan identity is read-only
+      - name: plan
+        run: terraform plan -lock=false -no-color -out=tfplan
+        working-directory: ${{ env.WORKDIR }}
+
+      - name: render plan
+        run: terraform show -no-color tfplan > plan.txt
+        working-directory: ${{ env.WORKDIR }}
+
+      - name: comment plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = fs.readFileSync(`${process.env.WORKDIR}/plan.txt`, 'utf8');
+            if (plan.length > 60000) plan = plan.slice(0, 60000) + '\n... (truncated)';
+            const body = `### Terraform plan (read-only identity, OIDC)\n\`\`\`\n${plan}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
