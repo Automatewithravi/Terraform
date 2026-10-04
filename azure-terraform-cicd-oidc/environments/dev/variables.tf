@@ -4,7 +4,7 @@ variable "subscription_id" {
 }
 
 variable "resource_group_name" {
-  type        = string
+  type    = string
   default = "rg-cicd-demo-dev"
 }
 
@@ -14,13 +14,13 @@ variable "environment" {
 }
 variable "vm_size" {
   type        = string
-  default     = "Standard_B1s"
-  description = "Smallest general-purpose burstable size; enough to prove the pipeline works"
+  default     = "Standard_B2s"
+  description = "VM size (SKU)."
 }
 
 variable "admin_username" {
-  type        = string
-  default     = "azureadmin"
+  type    = string
+  default = "azureadmin"
 }
 variable "admin_ssh_public_key" {
   type        = string
