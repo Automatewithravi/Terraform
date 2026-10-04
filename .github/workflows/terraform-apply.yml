@@ -48,7 +48,7 @@ jobs:
         working-directory: ${{ env.WORKDIR }}
 
       - name: plan
-        run: terraform plan -lock=false-out=tfplan
+        run: terraform plan -lock=false -no-color -out=tfplan
         working-directory: ${{ env.WORKDIR }}
       - name: show plan in the job summary
         run: |
