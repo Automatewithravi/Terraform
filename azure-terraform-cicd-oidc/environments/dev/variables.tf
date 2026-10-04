@@ -5,7 +5,7 @@ variable "subscription_id" {
 
 variable "resource_group_name" {
   type        = string
-  description = "rg-cicd-demo-dev"
+  default = "rg-cicd-demo-dev"
 }
 
 variable "environment" {
