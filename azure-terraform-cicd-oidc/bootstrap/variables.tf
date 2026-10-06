@@ -9,13 +9,13 @@ variable "location" {
 }
 
 variable "github_owner" {
-  type    = string
-  default = "Automatewithravi"
+  type        = string
+  description = "GitHub user or organisation that owns the repository"
 }
 
 variable "github_repo" {
-  type    = string
-  default = "Terraform"
+  type        = string
+  description = "Name of the GitHub repository (without the owner)"
 }
 
 variable "github_environment" {
@@ -25,8 +25,8 @@ variable "github_environment" {
 }
 
 variable "state_storage_account" {
-  type    = string
-  default = "sttflzstateh4dynn"
+  type        = string
+  description = "Existing storage account that holds the Terraform state"
 }
 
 variable "state_resource_group" {

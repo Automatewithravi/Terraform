@@ -112,8 +112,8 @@ sequenceDiagram
 **How:**
 
 - Azure subscription where you can create resource groups and role assignments (Owner, or Contributor plus User Access Administrator, for the one-time bootstrap)
-- Existing state storage account (reused): `sttflzstateh4dynn` in `rg-tfstate-landingzone`
-- GitHub repo `Automatewithravi/Terraform` (public is simplest; see the note in Step 4)
+- Existing state storage account (reused): `<your-state-storage-account>` (a globally unique name) in `rg-tfstate-landingzone`, or your own resource group
+- GitHub repo `OWNER/REPO` (public is simplest; see the note in Step 4)
 - Azure CLI, Terraform `1.15.8`, GitHub CLI (`gh`), Git
 - **A local clone of that repo on your machine.** Every `cd <your-local-clone>/Terraform` in this guide means "the folder on disk where that repo lives." If you don't have one yet, get one first — see below.
 - Commands throughout this guide are written for **bash** (Git Bash, WSL, macOS/Linux terminal, Cloud Shell). If you're in **Windows PowerShell**, every local-terminal command block has a collapsed **PowerShell (Windows)** section right under it — click to expand. The main differences: `export VAR=` becomes `$env:VAR =`, line continuation `\` becomes `` ` ``, and command substitution `$(...)` is used the same way but assigned directly rather than wrapped. Workflow YAML files (Step 6, Step 11) don't need converting — they always run on a Linux GitHub/Azure DevOps runner regardless of what OS you write them from.
@@ -126,7 +126,7 @@ sequenceDiagram
 # pick a parent folder, e.g. your usual projects/repos directory
 cd ~/source/repos               # or wherever you keep local repos
 
-gh repo clone Automatewithravi/Terraform
+gh repo clone OWNER/REPO
 cd Terraform
 ```
 
@@ -135,7 +135,7 @@ PowerShell is identical:
 ```powershell
 cd C:\Users\<you>\source\repos
 
-gh repo clone Automatewithravi/Terraform
+gh repo clone OWNER/REPO
 cd Terraform
 ```
 
@@ -147,7 +147,7 @@ This downloads the full repo — including anything from earlier projects, like 
 ```bash
 cd ~/source/repos
 
-gh repo create Automatewithravi/Terraform --public --clone
+gh repo create OWNER/REPO --public --clone
 cd Terraform
 ```
 
@@ -157,7 +157,7 @@ cd Terraform
 Once you're inside the cloned folder, confirm it's the right one and that Git is tracking it:
 
 ```bash
-git remote -v     # should show Automatewithravi/Terraform (fetch/push)
+git remote -v     # should show OWNER/REPO (fetch/push)
 pwd               # this full path is what <your-local-clone>/Terraform means below
 ```
 
@@ -168,11 +168,18 @@ gh auth login
 export SUB_ID=$(az account show --query id -o tsv)
 export TENANT_ID=$(az account show --query tenantId -o tsv)
 export STATE_RG=rg-tfstate-landingzone
-export STATE_SA=sttflzstateh4dynn
-export REPO=Automatewithravi/Terraform
+export STATE_SA="<your-state-storage-account>"   # your state storage account name
+export REPO="OWNER/REPO"        # your GitHub owner and repository
 
 echo "Subscription: $SUB_ID"
 echo "Tenant:       $TENANT_ID"
+
+# Terraform reads TF_VAR_<name> automatically, so the bootstrap picks these up
+export TF_VAR_github_owner="${REPO%%/*}"
+export TF_VAR_github_repo="${REPO##*/}"
+export TF_VAR_state_storage_account="$STATE_SA"
+export TF_VAR_state_resource_group="$STATE_RG"
+
 terraform version     # expect 1.15.8
 ```
 
@@ -185,16 +192,23 @@ gh auth login
 $env:SUB_ID    = az account show --query id -o tsv
 $env:TENANT_ID = az account show --query tenantId -o tsv
 $env:STATE_RG  = "rg-tfstate-landingzone"
-$env:STATE_SA  = "sttflzstateh4dynn"
-$env:REPO      = "Automatewithravi/Terraform"
+$env:STATE_SA  = "<your-state-storage-account>"   # your state storage account name
+$env:REPO      = "OWNER/REPO"        # your GitHub owner and repository
 
 Write-Host "Subscription: $($env:SUB_ID)"
 Write-Host "Tenant:       $($env:TENANT_ID)"
+
+# Terraform reads TF_VAR_<name> automatically, so the bootstrap picks these up
+$env:TF_VAR_github_owner           = $env:REPO.Split("/")[0]
+$env:TF_VAR_github_repo            = $env:REPO.Split("/")[1]
+$env:TF_VAR_state_storage_account  = $env:STATE_SA
+$env:TF_VAR_state_resource_group   = $env:STATE_RG
+
 terraform version     # expect 1.15.8
 ```
 </details>
 
-**Checkpoint:** `git remote -v` points at `Automatewithravi/Terraform`, the subscription printed is the one you intend to deploy into, and `terraform version` shows `1.15.8`.
+**Checkpoint:** `git remote -v` points at `OWNER/REPO`, the subscription printed is the one you intend to deploy into, and `terraform version` shows `1.15.8`.
 
 ---
 
@@ -372,13 +386,13 @@ variable "location" {
 }
 
 variable "github_owner" {
-  type    = string
-  default = "Automatewithravi"
+  type        = string
+  description = "GitHub user or organisation that owns the repository"
 }
 
 variable "github_repo" {
-  type    = string
-  default = "Terraform"
+  type        = string
+  description = "Name of the GitHub repository (without the owner)"
 }
 
 variable "github_subject_repo" {
@@ -394,8 +408,8 @@ variable "github_environment" {
 }
 
 variable "state_storage_account" {
-  type    = string
-  default = "sttflzstateh4dynn"
+  type        = string
+  description = "Existing storage account that holds the Terraform state"
 }
 
 variable "state_resource_group" {
@@ -457,7 +471,7 @@ provider "azurerm" {
 terraform {
   backend "azurerm" {
     resource_group_name  = "rg-tfstate-landingzone"
-    storage_account_name = "sttflzstateh4dynn"
+    storage_account_name = "<your-state-storage-account>"
     container_name       = "tfstate-cicd"
     key                  = "cicd-identity-bootstrap.tfstate"
     use_azuread_auth     = true
@@ -465,12 +479,14 @@ terraform {
 }
 ```
 
+> A `backend` block cannot use variables, so this is the one place you type the state storage account by hand. Replace `<your-state-storage-account>` with the name you set as `STATE_SA` in Step 0. The same applies to `environments/dev/backend.tf` in Step 5.
+
 ### Check which subject format your repo uses (do this before 3d)
 
 GitHub can issue OIDC subjects in two shapes, and Entra ID matches the subject **exactly**:
 
 - Classic: `repo:OWNER/REPO:pull_request`
-- Immutable (repository and owner IDs included): `repo:OWNER@233399670/REPO@1350554887:pull_request`
+- Immutable (repository and owner IDs included): `repo:OWNER@123456789/REPO@987654321:pull_request`
 
 Newer repositories and organisations use the immutable form. Ask GitHub which one yours uses:
 
@@ -479,11 +495,11 @@ gh api repos/OWNER/REPO/actions/oidc/customization/sub
 ```
 
 ```powershell
-gh api repos/Automatewithravi/Terraform/actions/oidc/customization/sub
+gh api repos/OWNER/REPO/actions/oidc/customization/sub
 ```
 
 - `"use_immutable_subject": false` (or the call shows no prefix): leave `github_subject_repo` as `null`. Nothing to do.
-- `"use_immutable_subject": true`: copy `sub_claim_prefix`, drop the leading `repo:`, and set that as `github_subject_repo` (default in `variables.tf`, or `$env:TF_VAR_github_subject_repo`). Example: `"sub_claim_prefix": "repo:Automatewithravi@233399670/Terraform@1350554887"` gives `github_subject_repo = "Automatewithravi@233399670/Terraform@1350554887"`.
+- `"use_immutable_subject": true`: copy `sub_claim_prefix`, drop the leading `repo:`, and set that as `github_subject_repo` (default in `variables.tf`, or `$env:TF_VAR_github_subject_repo`). Example: `"sub_claim_prefix": "repo:OWNER@123456789/REPO@987654321"` gives `github_subject_repo = "OWNER@123456789/REPO@987654321"`.
 
 If you skip this, the first workflow run fails with `AADSTS700213` and the error prints the subject GitHub actually presented.
 
@@ -501,7 +517,7 @@ locals {
   tags = {
     managed_by = "terraform"
     purpose    = "cicd-oidc"
-    owner      = "ravi@automatewithravi.com"
+    owner      = "owner@example.com"
   }
 }
 
@@ -937,7 +953,7 @@ provider "azurerm" {
 terraform {
   backend "azurerm" {
     resource_group_name  = "rg-tfstate-landingzone"
-    storage_account_name = "sttflzstateh4dynn"
+    storage_account_name = "<your-state-storage-account>"
     container_name       = "tfstate-cicd"
     key                  = "cicd-oidc-demo-dev.tfstate"
     use_azuread_auth     = true
@@ -963,7 +979,7 @@ locals {
     environment = var.environment
     managed_by  = "terraform"
     pipeline    = "github-actions-oidc"
-    owner       = "ravi@automatewithravi.com"
+    owner       = "owner@example.com"
   }
 }
 
@@ -1399,12 +1415,12 @@ jobs:
 
 **How:**
 
-> **Run these commands from inside the cloned repo, not from a scratch folder.** Git only works in a folder that has a hidden `.git` directory, which `git clone` (Step 0) creates. If you built the files in a separate working folder (for example `C:\learn-terraform-azure\terraform`), `git add` fails with `fatal: not a git repository (or any of the parent directories): .git`. The fix is to copy your two folders into the clone first, then run the git commands there:
+> **Run these commands from inside the cloned repo, not from a scratch folder.** Git only works in a folder that has a hidden `.git` directory, which `git clone` (Step 0) creates. If you built the files in a separate working folder (for example `C:\work\terraform`), `git add` fails with `fatal: not a git repository (or any of the parent directories): .git`. The fix is to copy your two folders into the clone first, then run the git commands there:
 >
 > ```powershell
 > # Only needed if you built the files outside the clone. Adjust both paths to yours.
-> Copy-Item -Recurse -Force C:\learn-terraform-azure\terraform\.github                   C:\Users\<you>\source\repos\Terraform\
-> Copy-Item -Recurse -Force C:\learn-terraform-azure\terraform\azure-terraform-cicd-oidc C:\Users\<you>\source\repos\Terraform\
+> Copy-Item -Recurse -Force C:\work\terraform\.github                              C:\Users\<you>\source\repos\Terraform\
+> Copy-Item -Recurse -Force C:\work\terraform\azure-terraform-cicd-oidc            C:\Users\<you>\source\repos\Terraform\
 >
 > cd C:\Users\<you>\source\repos\Terraform
 > git status        # .github/ and azure-terraform-cicd-oidc/ should show as untracked
@@ -1416,7 +1432,7 @@ This is plain `git` — the same five commands whether you type them in bash or 
 
 | Command | What it does |
 |---|---|
-| `cd <your-local-clone>/Terraform` | Move into the cloned repo folder (the one `git clone` created in Step 0). Replace `<your-local-clone>` with your real path (e.g. `C:\Users\ravi\source\repos`). `git remote -v` should print `Automatewithravi/Terraform` here. |
+| `cd <your-local-clone>/Terraform` | Move into the cloned repo folder (the one `git clone` created in Step 0). Replace `<your-local-clone>` with your real path (e.g. `C:\Users\<you>\source\repos`). `git remote -v` should print `OWNER/REPO` here. |
 | `git add .github azure-terraform-cicd-oidc` | **Stage** only these two folders — the workflow files and the Terraform code you've built so far — so they're queued for the next commit. Naming the folders explicitly (instead of `git add .`) stops anything else in the repo being swept in by accident. |
 | `git status` | Lists everything currently staged, **before** you commit it. This is your last chance to catch a mistake — specifically check the list does **not** contain `*.tfstate`, `*.tfplan`, or a `.terraform/` folder. Those are local, machine-generated files (state can contain resource values, `.terraform/` is just a downloaded provider cache) and must never end up in Git. If you see any of them listed, stop and add them to `.gitignore` before continuing. |
 | `git commit -m "..."` | Creates a **commit** — a saved, named snapshot of exactly what's staged. The `-m "..."` is the commit message describing what changed. This only saves the snapshot *locally*; nothing has reached GitHub yet. |
@@ -1552,7 +1568,7 @@ gh pr create --fill
 | Plan prints `Plan: N to add` but the step fails: `expected "admin_ssh_key.0.public_key" to not be an empty string or whitespace` | The GitHub **variable** `ADMIN_SSH_PUBLIC_KEY` is missing, empty, stored as a Secret instead of a Variable, or not mapped to `TF_VAR_admin_ssh_public_key` in the workflow `env`. | Set it under Settings → Secrets and variables → Actions → **Variables** to the full `.pub` line (`gh variable set ADMIN_SSH_PUBLIC_KEY --body ...`), confirm `TF_VAR_admin_ssh_public_key: ${{ vars.ADMIN_SSH_PUBLIC_KEY }}` is in the plan and apply jobs, then re-run. |
 | `No value for required variable` for `resource_group_name` / `admin_username` | Your `variables.tf` lost the `default = ...` lines from Step 5b. | Restore the defaults, commit and push, and check the new run. |
 | `validate` job fails at the `fmt` step: `terraform fmt -check -recursive` prints a file name (e.g. `variables.tf`) and `exit code 3` | The file isn't in canonical Terraform format (hand-edited spacing or misaligned `=`). `plan` is skipped because it `needs` validate. | Run `terraform fmt -recursive` in `azure-terraform-cicd-oidc`, check `git diff`, commit and push to the same branch. The PR checks re-run. Tip: enable format-on-save in your editor. |
-| `AADSTS700213: No matching federated identity record found` | The `sub` claim does not match. Check owner/repo casing. Jobs with `environment:` present `environment:NAME`, not `ref:`. **The error text prints the exact subject GitHub presented** (`presented assertion subject '...'`), so compare it character by character with the `subject` of each `azurerm_federated_identity_credential`. If the presented subject has extra characters in the repo part (for example `repo:OWNER@233399670/REPO@1350554887:ref:refs/heads/main` instead of `repo:OWNER/REPO:ref:refs/heads/main`), GitHub is issuing the repository-ID form of the subject. Confirm with `gh api repos/OWNER/REPO/actions/oidc/customization/sub`, then set `github_subject_repo` (see "Check which subject format your repo uses" before Step 3d) to the part of `sub_claim_prefix` after `repo:`, which feeds all three GitHub subjects, and re-apply the bootstrap. |
+| `AADSTS700213: No matching federated identity record found` | The `sub` claim does not match. Check owner/repo casing. Jobs with `environment:` present `environment:NAME`, not `ref:`. **The error text prints the exact subject GitHub presented** (`presented assertion subject '...'`), so compare it character by character with the `subject` of each `azurerm_federated_identity_credential`. If the presented subject has extra characters in the repo part (for example `repo:OWNER@123456789/REPO@987654321:ref:refs/heads/main` instead of `repo:OWNER/REPO:ref:refs/heads/main`), GitHub is issuing the repository-ID form of the subject. Confirm with `gh api repos/OWNER/REPO/actions/oidc/customization/sub`, then set `github_subject_repo` (see "Check which subject format your repo uses" before Step 3d) to the part of `sub_claim_prefix` after `repo:`, which feeds all three GitHub subjects, and re-apply the bootstrap. |
 | `AADSTS70021` | Wrong client ID, or the credential is on a different identity. Recheck the `AZURE_CLIENT_ID_*` variables. |
 | Fails minutes after creating identities | Federated credential or role assignment propagation. Wait 2 to 5 minutes and re-run. |
 | `AuthorizationFailed` during plan | Provider is reading outside the RG. Grant `Reader` on the subscription to the plan identity as a fallback. |
@@ -1776,7 +1792,7 @@ Notes:
    ```
    </details>
 
-3. **Never destroy the shared state backend** (`sttflzstateh4dynn`). Delete only this project's container when finished:
+3. **Never destroy the shared state backend** (`<your-state-storage-account>`). Delete only this project's container when finished:
    ```bash
    az storage container delete --name tfstate-cicd --account-name $STATE_SA --auth-mode login
    ```

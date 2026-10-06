@@ -14,7 +14,7 @@ locals {
     environment = var.environment
     managed_by  = "terraform"
     pipeline    = "github-actions-oidc"
-    owner       = "ravi@automatewithravi.com"
+    owner       = "owner@example.com"
     cost_centre = "portfolio"
   }
 }

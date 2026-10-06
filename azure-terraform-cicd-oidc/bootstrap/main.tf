@@ -7,7 +7,7 @@ locals {
   tags = {
     managed_by = "terraform"
     purpose    = "cicd-oidc"
-    owner      = "ravi@automatewithravi.com"
+    owner      = "owner@example.com"
   }
 }
 
